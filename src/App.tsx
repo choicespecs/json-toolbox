@@ -43,8 +43,8 @@ type FlatDiff = {
 type DiffNodeType = "object" | "array" | "value"
 
 type DiffNode = {
-  key: string // local key (no dots)
-  path: string // full path
+  key: string
+  path: string
   type: DiffNodeType
   same: boolean
   leftPresent: boolean
@@ -52,7 +52,7 @@ type DiffNode = {
   left?: JSONValue
   right?: JSONValue
   children?: DiffNode[]
-  diffCount: number // number of differing leaves under this node
+  diffCount: number
 }
 
 // -------------------- Analyze (inspect) types --------------------
@@ -63,10 +63,9 @@ type InspectNode = {
   key: string
   path: string
   kind: InspectKind
-  // For arrays/objects we add counts; for primitives we add preview
-  count?: number // array length OR object key count
-  preview?: string // short string for primitive / short array preview
-  children?: InspectNode[] // for object/array
+  count?: number
+  preview?: string
+  children?: InspectNode[]
 }
 
 // -------------------- Helpers --------------------
@@ -80,7 +79,39 @@ function parseJsonSafe(src: string) {
   }
 }
 
-const isPlainObj = (x: JSONValue): x is JSONObject => typeof x === "object" && x !== null && !Array.isArray(x)
+const isPlainObj = (x: JSONValue): x is JSONObject =>
+  typeof x === "object" && x !== null && !Array.isArray(x)
+
+// ---------- Formatting helpers ----------
+function sortKeysDeep(v: JSONValue): JSONValue {
+  if (Array.isArray(v)) return v.map(sortKeysDeep) as JSONArray
+  if (isPlainObj(v)) {
+    const out: JSONObject = {}
+    for (const k of Object.keys(v).sort()) out[k] = sortKeysDeep(v[k])
+    return out
+  }
+  return v
+}
+
+function formatJsonText(
+  src: string,
+  {
+    indent = 2,
+    sortKeys = true,
+    minify = false,
+  }: { indent?: number; sortKeys?: boolean; minify?: boolean } = {}
+): { ok: true; text: string } | { ok: false; error: string } {
+  const parsed = parseJsonSafe(src)
+  if (!parsed.ok) return { ok: false, error: parsed.error }
+  const val = sortKeys ? sortKeysDeep(parsed.value) : parsed.value
+  try {
+    const text = JSON.stringify(val, null, minify ? 0 : indent)
+    return { ok: true, text }
+  } catch (e: any) {
+    return { ok: false, error: e?.message ?? String(e) }
+  }
+}
+// ---------------------------------------
 
 function computeDifferences(a: JSONValue, b: JSONValue) {
   const diffs: FlatDiff[] = []
@@ -323,7 +354,6 @@ function buildInspectTree(v: JSONValue, path = ""): InspectNode {
 
   if (k === "array") {
     const arr = (v ?? []) as JSONArray
-    // Show synthetic child entries as index nodes
     const children = arr.map((item, idx) => buildInspectTree(item, path ? `${path}[${idx}]` : `[${idx}]`))
     return {
       key: path.split(".").pop() ?? "",
@@ -335,7 +365,6 @@ function buildInspectTree(v: JSONValue, path = ""): InspectNode {
     }
   }
 
-  // Primitive
   return {
     key: path.split(".").pop() ?? "",
     path,
@@ -366,7 +395,6 @@ function InspectRow({
   const toggle = () => setExpanded(prev => ({ ...prev, [node.path]: !isOpen }))
   const indent = { paddingLeft: `${depth * 12}px` }
   const label = node.path || "(root)"
-
   const isContainer = node.kind === "object" || node.kind === "array"
 
   return (
@@ -444,6 +472,10 @@ export default function App() {
   const [analyzeError, setAnalyzeError] = useState("")
   const [analyzeExpanded, setAnalyzeExpanded] = useState<Record<string, boolean>>({})
 
+  // Prettify toolbar state
+  const [indent, setIndent] = useState<2 | 4>(2)
+  const [sortKeys, setSortKeys] = useState(true)
+
   // Initialize active tab once docs are created
   useEffect(() => {
     if (!active && docs.length) setActive(docs[0].id)
@@ -499,7 +531,7 @@ export default function App() {
   const setText = (id: string, text: string) => setDocs((prev) => prev.map((d) => (d.id === id ? { ...d, text } : d)))
   const setDiffText = (id: string, text: string) => setDocs((prev) => prev.map((d) => (d.id === id ? { ...d, diffText: text } : d)))
 
-  // when toggling to diff mode, ensure diff text exists
+  // ensure diff text exists when toggling diff mode
   useEffect(() => {
     if (showDiff && activeDoc && typeof activeDoc.diffText === "undefined") {
       setDiffText(activeDoc.id, "")
@@ -507,7 +539,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showDiff, activeDoc?.id])
 
-  // clear compare state when view or active tab changes or when switching modes
+  // clear compare state when view or active tab changes
   useEffect(() => {
     setHasCompared(false)
     setDiffs([])
@@ -563,8 +595,31 @@ export default function App() {
     setAnalyzeRoot(root)
   }
 
+  // Unified prettify (operates on left, or both when in diff mode)
+  const prettify = (minify = false) => {
+    if (!activeDoc) return
+    // Left
+    const L = formatJsonText(activeDoc.text, { indent, sortKeys, minify })
+    if (!L.ok) {
+      alert(`Left JSON invalid: ${L.error}`)
+      return
+    }
+    setText(activeDoc.id, L.text)
+
+    // Right only if diff mode
+    if (showDiff) {
+      const R = formatJsonText(activeDoc.diffText ?? "{}", { indent, sortKeys, minify })
+      if (!R.ok) {
+        alert(`Right JSON invalid: ${R.error}`)
+        return
+      }
+      setDiffText(activeDoc.id, R.text)
+    }
+  }
+
   return (
     <div className="min-h-screen w-full flex flex-col">
+      {/* Top bar */}
       <div className="flex items-center justify-between border-b bg-background/60 px-4 py-2">
         <div className="flex items-center gap-2">
           <Button
@@ -584,6 +639,28 @@ export default function App() {
             Analyze
           </Button>
         </div>
+
+        {/* Simplified Prettify toolbar */}
+        <div className="flex items-center gap-2">
+          <div className="text-xs opacity-70">Indent:</div>
+          <div className="flex gap-1">
+            <Button size="xs" variant={indent === 2 ? "default" : "outline"} onClick={() => setIndent(2)}>2</Button>
+            <Button size="xs" variant={indent === 4 ? "default" : "outline"} onClick={() => setIndent(4)}>4</Button>
+          </div>
+          <Button size="sm" variant={sortKeys ? "default" : "outline"} onClick={() => setSortKeys(v => !v)}>
+            {sortKeys ? "Sort Keys ✓" : "Sort Keys"}
+          </Button>
+
+          <div className="w-px h-5 bg-border mx-1" />
+
+          <Button size="sm" variant="outline" onClick={() => prettify(false)}>
+            Prettify{showDiff ? " Both" : ""}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => prettify(true)}>
+            Minify{showDiff ? " Both" : ""}
+          </Button>
+        </div>
+
         <div className="text-xs opacity-70">
           {!showDiff && !showAnalyze
             ? "Single editor"
@@ -599,7 +676,6 @@ export default function App() {
           <Tabs value={active} onValueChange={(val) => setActive(val)} className="flex flex-col flex-1 min-h-0">
             <div className="flex items-center border-b gap-1">
               <div className="shrink-0 pl-2">
-                {/* scroll left */}
                 <Button
                   type="button"
                   size="icon"
@@ -640,7 +716,6 @@ export default function App() {
               </div>
 
               <div className="shrink-0">
-                {/* scroll right */}
                 <Button
                   type="button"
                   size="icon"
@@ -697,7 +772,6 @@ export default function App() {
 
         {/* Right side: results card */}
         <div className="w-1/2 flex items-center justify-center p-4">
-          {/* Nothing selected */}
           {!showDiff && !showAnalyze ? (
             <Card className="w-full max-w-sm">
               <CardHeader>
@@ -710,7 +784,6 @@ export default function App() {
             </Card>
           ) : null}
 
-          {/* Difference panel */}
           {showDiff ? (
             <Card className="w-full max-w-2xl">
               <CardHeader>
@@ -813,7 +886,6 @@ export default function App() {
             </Card>
           ) : null}
 
-          {/* Analyze panel */}
           {showAnalyze ? (
             <Card className="w-full max-w-2xl">
               <CardHeader>
