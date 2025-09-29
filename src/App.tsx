@@ -43,8 +43,8 @@ type FlatDiff = {
 type DiffNodeType = "object" | "array" | "value"
 
 type DiffNode = {
-  key: string // local key (no dots)
-  path: string // full path
+  key: string
+  path: string
   type: DiffNodeType
   same: boolean
   leftPresent: boolean
@@ -52,7 +52,20 @@ type DiffNode = {
   left?: JSONValue
   right?: JSONValue
   children?: DiffNode[]
-  diffCount: number // number of differing leaves under this node
+  diffCount: number
+}
+
+// -------------------- Analyze (inspect) types --------------------
+
+type InspectKind = "object" | "array" | "string" | "number" | "boolean" | "null"
+
+type InspectNode = {
+  key: string
+  path: string
+  kind: InspectKind
+  count?: number
+  preview?: string
+  children?: InspectNode[]
 }
 
 // -------------------- Helpers --------------------
@@ -66,7 +79,39 @@ function parseJsonSafe(src: string) {
   }
 }
 
-const isPlainObj = (x: JSONValue): x is JSONObject => typeof x === "object" && x !== null && !Array.isArray(x)
+const isPlainObj = (x: JSONValue): x is JSONObject =>
+  typeof x === "object" && x !== null && !Array.isArray(x)
+
+// ---------- Formatting helpers ----------
+function sortKeysDeep(v: JSONValue): JSONValue {
+  if (Array.isArray(v)) return v.map(sortKeysDeep) as JSONArray
+  if (isPlainObj(v)) {
+    const out: JSONObject = {}
+    for (const k of Object.keys(v).sort()) out[k] = sortKeysDeep(v[k])
+    return out
+  }
+  return v
+}
+
+function formatJsonText(
+  src: string,
+  {
+    indent = 2,
+    sortKeys = true,
+    minify = false,
+  }: { indent?: number; sortKeys?: boolean; minify?: boolean } = {}
+): { ok: true; text: string } | { ok: false; error: string } {
+  const parsed = parseJsonSafe(src)
+  if (!parsed.ok) return { ok: false, error: parsed.error }
+  const val = sortKeys ? sortKeysDeep(parsed.value) : parsed.value
+  try {
+    const text = JSON.stringify(val, null, minify ? 0 : indent)
+    return { ok: true, text }
+  } catch (e: any) {
+    return { ok: false, error: e?.message ?? String(e) }
+  }
+}
+// ---------------------------------------
 
 function computeDifferences(a: JSONValue, b: JSONValue) {
   const diffs: FlatDiff[] = []
@@ -263,12 +308,157 @@ function DiffTreeView({
   )
 }
 
+// -------------------- Analyze helpers & components --------------------
+
+const kindOf = (v: JSONValue): InspectKind => {
+  if (v === null) return "null"
+  if (Array.isArray(v)) return "array"
+  if (isPlainObj(v)) return "object"
+  const t = typeof v
+  return t === "string" || t === "number" || t === "boolean" ? (t as InspectKind) : "null"
+}
+
+function previewValue(v: JSONValue): string {
+  try {
+    if (typeof v === "string") return v.length > 60 ? v.slice(0, 57) + "..." : v
+    if (typeof v === "number" || typeof v === "boolean" || v === null) return String(v)
+    if (Array.isArray(v)) {
+      const shown = v.slice(0, 5).map(x => JSON.stringify(x)).join(", ")
+      return v.length > 5 ? `[${shown}, …]` : `[${shown}]`
+    }
+    if (isPlainObj(v)) {
+      const keys = Object.keys(v)
+      const shown = keys.slice(0, 5).join(", ")
+      return keys.length > 5 ? `{${shown}, …}` : `{${shown}}`
+    }
+  } catch {}
+  return ""
+}
+
+function buildInspectTree(v: JSONValue, path = ""): InspectNode {
+  const k = kindOf(v)
+
+  if (k === "object") {
+    const obj = (v ?? {}) as JSONObject
+    const keys = Object.keys(obj).sort()
+    const children = keys.map(key => buildInspectTree(obj[key], path ? `${path}.${key}` : key))
+    return {
+      key: path.split(".").pop() ?? "",
+      path,
+      kind: "object",
+      count: keys.length,
+      preview: previewValue(v),
+      children,
+    }
+  }
+
+  if (k === "array") {
+    const arr = (v ?? []) as JSONArray
+    const children = arr.map((item, idx) => buildInspectTree(item, path ? `${path}[${idx}]` : `[${idx}]`))
+    return {
+      key: path.split(".").pop() ?? "",
+      path,
+      kind: "array",
+      count: arr.length,
+      preview: previewValue(v),
+      children,
+    }
+  }
+
+  return {
+    key: path.split(".").pop() ?? "",
+    path,
+    kind: k,
+    preview: previewValue(v),
+  }
+}
+
+function KindBadge({ kind }: { kind: InspectKind }) {
+  const label = kind.toUpperCase()
+  return (
+    <span className="text-[10px] rounded px-1 py-0.5 bg-slate-100 text-slate-900 border border-slate-300">{label}</span>
+  )
+}
+
+function InspectRow({
+  node,
+  expanded,
+  setExpanded,
+  depth = 0,
+}: {
+  node: InspectNode
+  expanded: Record<string, boolean>
+  setExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
+  depth?: number
+}) {
+  const isOpen = !!expanded[node.path]
+  const toggle = () => setExpanded(prev => ({ ...prev, [node.path]: !isOpen }))
+  const indent = { paddingLeft: `${depth * 12}px` }
+  const label = node.path || "(root)"
+  const isContainer = node.kind === "object" || node.kind === "array"
+
+  return (
+    <li>
+      <button
+        type="button"
+        className="w-full flex items-center gap-2 text-left p-2 rounded hover:bg-muted/60"
+        onClick={isContainer ? toggle : undefined}
+        style={indent}
+      >
+        <span className="font-mono text-xs flex-1 break-words">{label}</span>
+        <KindBadge kind={node.kind} />
+        {node.kind === "array" && <Badge>{node.count ?? 0} items</Badge>}
+        {node.kind === "object" && <Badge>{node.count ?? 0} keys</Badge>}
+        {node.preview && node.kind !== "object" && node.kind !== "array" ? (
+          <span className="text-[10px] opacity-70 truncate max-w-[180px]">{node.preview}</span>
+        ) : null}
+      </button>
+
+      {isContainer && isOpen && !!node.children?.length && (
+        <ul className="mt-1 space-y-1">
+          {node.children!.map((c) => (
+            <InspectRow
+              key={c.path || Math.random().toString(36)}
+              node={c}
+              expanded={expanded}
+              setExpanded={setExpanded}
+              depth={depth + 1}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  )
+}
+
+function InspectTree({
+  root,
+  expanded,
+  setExpanded,
+}: {
+  root: InspectNode
+  expanded: Record<string, boolean>
+  setExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
+}) {
+  return (
+    <div className="max-h-[48vh] overflow-auto rounded-md border p-3 text-xs">
+      <div className="mb-2 font-medium">Analyze (Structure):</div>
+      <ul className="space-y-1">
+        <InspectRow node={root} expanded={expanded} setExpanded={setExpanded} />
+      </ul>
+    </div>
+  )
+}
+
 // -------------------- App --------------------
 
 export default function App() {
   const [docs, setDocs] = useState<Doc[]>(() => [makeDoc(1)])
   const [active, setActive] = useState<string>("")
+
+  // Right panel modes
   const [showDiff, setShowDiff] = useState(false)
+  const [showAnalyze, setShowAnalyze] = useState(false)
 
   const [diffs, setDiffs] = useState<FlatDiff[]>([])
   const [treeNode, setTreeNode] = useState<DiffNode | null>(null)
@@ -276,6 +466,15 @@ export default function App() {
   const [diffError, setDiffError] = useState("")
   const [hasCompared, setHasCompared] = useState(false)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+
+  // Analyze state
+  const [analyzeRoot, setAnalyzeRoot] = useState<InspectNode | null>(null)
+  const [analyzeError, setAnalyzeError] = useState("")
+  const [analyzeExpanded, setAnalyzeExpanded] = useState<Record<string, boolean>>({})
+
+  // Prettify toolbar state
+  const [indent, setIndent] = useState<2 | 4>(2)
+  const [sortKeys, setSortKeys] = useState(true)
 
   // Initialize active tab once docs are created
   useEffect(() => {
@@ -332,7 +531,7 @@ export default function App() {
   const setText = (id: string, text: string) => setDocs((prev) => prev.map((d) => (d.id === id ? { ...d, text } : d)))
   const setDiffText = (id: string, text: string) => setDocs((prev) => prev.map((d) => (d.id === id ? { ...d, diffText: text } : d)))
 
-  // when toggling to diff mode, ensure diff text exists
+  // ensure diff text exists when toggling diff mode
   useEffect(() => {
     if (showDiff && activeDoc && typeof activeDoc.diffText === "undefined") {
       setDiffText(activeDoc.id, "")
@@ -348,6 +547,13 @@ export default function App() {
     setDiffError("")
     setExpanded({})
   }, [showDiff, active])
+
+  // clear analyze state when switching tabs or mode
+  useEffect(() => {
+    setAnalyzeRoot(null)
+    setAnalyzeError("")
+    setAnalyzeExpanded({})
+  }, [showAnalyze, active])
 
   const handleCompare = () => {
     setDiffError("")
@@ -374,17 +580,93 @@ export default function App() {
     setTreeNode(root)
   }
 
+  const handleAnalyze = () => {
+    setAnalyzeError("")
+    setAnalyzeRoot(null)
+    setAnalyzeExpanded({})
+
+    if (!activeDoc) return
+    const parsed = parseJsonSafe(activeDoc.text)
+    if (!parsed.ok) {
+      setAnalyzeError(`JSON invalid: ${parsed.error}`)
+      return
+    }
+    const root = buildInspectTree(parsed.value, "")
+    setAnalyzeRoot(root)
+  }
+
+  // Unified prettify (operates on left, or both when in diff mode)
+  const prettify = (minify = false) => {
+    if (!activeDoc) return
+    // Left
+    const L = formatJsonText(activeDoc.text, { indent, sortKeys, minify })
+    if (!L.ok) {
+      alert(`Left JSON invalid: ${L.error}`)
+      return
+    }
+    setText(activeDoc.id, L.text)
+
+    // Right only if diff mode
+    if (showDiff) {
+      const R = formatJsonText(activeDoc.diffText ?? "{}", { indent, sortKeys, minify })
+      if (!R.ok) {
+        alert(`Right JSON invalid: ${R.error}`)
+        return
+      }
+      setDiffText(activeDoc.id, R.text)
+    }
+  }
+
   return (
     <div className="min-h-screen w-full flex flex-col">
+      {/* Top bar */}
       <div className="flex items-center justify-between border-b bg-background/60 px-4 py-2">
         <div className="flex items-center gap-2">
-          <Button size="sm" variant={showDiff ? "default" : "outline"} onClick={() => setShowDiff((v) => !v)}>
+          <Button
+            size="sm"
+            variant={showDiff ? "default" : "outline"}
+            onClick={() => { setShowDiff(v => !v); if (!showDiff) setShowAnalyze(false) }}
+          >
             <SplitSquareHorizontal className="mr-2 h-4 w-4" />
             Difference
           </Button>
+
+          <Button
+            size="sm"
+            variant={showAnalyze ? "default" : "outline"}
+            onClick={() => { setShowAnalyze(v => !v); if (!showAnalyze) setShowDiff(false) }}
+          >
+            Analyze
+          </Button>
         </div>
+
+        {/* Simplified Prettify toolbar */}
+        <div className="flex items-center gap-2">
+          <div className="text-xs opacity-70">Indent:</div>
+          <div className="flex gap-1">
+            <Button size="xs" variant={indent === 2 ? "default" : "outline"} onClick={() => setIndent(2)}>2</Button>
+            <Button size="xs" variant={indent === 4 ? "default" : "outline"} onClick={() => setIndent(4)}>4</Button>
+          </div>
+          <Button size="sm" variant={sortKeys ? "default" : "outline"} onClick={() => setSortKeys(v => !v)}>
+            {sortKeys ? "Sort Keys ✓" : "Sort Keys"}
+          </Button>
+
+          <div className="w-px h-5 bg-border mx-1" />
+
+          <Button size="sm" variant="outline" onClick={() => prettify(false)}>
+            Prettify{showDiff ? " Both" : ""}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => prettify(true)}>
+            Minify{showDiff ? " Both" : ""}
+          </Button>
+        </div>
+
         <div className="text-xs opacity-70">
-          {showDiff ? "Split view enabled (left editor stacked)" : "Single editor"}
+          {!showDiff && !showAnalyze
+            ? "Single editor"
+            : showDiff
+              ? "Split view enabled (left editor stacked)"
+              : "Analyze structure of the left editor JSON"}
         </div>
       </div>
 
@@ -394,20 +676,19 @@ export default function App() {
           <Tabs value={active} onValueChange={(val) => setActive(val)} className="flex flex-col flex-1 min-h-0">
             <div className="flex items-center border-b gap-1">
               <div className="shrink-0 pl-2">
-                {canLeft ? (
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={() => {
-                      const el = stripRef.current
-                      if (el) el.scrollBy({ left: -Math.floor(el.clientWidth * 0.9), behavior: "smooth" })
-                    }}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                ) : (<div className="h-7 w-7" aria-hidden />)}
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={() => {
+                    const el = stripRef.current
+                    if (el) el.scrollBy({ left: -Math.floor(el.clientWidth * 0.9), behavior: "smooth" })
+                  }}
+                  disabled={!canLeft}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
               </div>
 
               <div ref={stripRef} className="flex-1 min-w-0 overflow-x-auto">
@@ -435,20 +716,19 @@ export default function App() {
               </div>
 
               <div className="shrink-0">
-                {canRight ? (
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={() => {
-                      const el = stripRef.current
-                      if (el) el.scrollBy({ left: Math.floor(el.clientWidth * 0.9), behavior: "smooth" })
-                    }}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                ) : (<div className="h-7 w-7" aria-hidden />)}
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={() => {
+                    const el = stripRef.current
+                    if (el) el.scrollBy({ left: Math.floor(el.clientWidth * 0.9), behavior: "smooth" })
+                  }}
+                  disabled={!canRight}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
 
               <div className="px-2 shrink-0">
@@ -492,17 +772,19 @@ export default function App() {
 
         {/* Right side: results card */}
         <div className="w-1/2 flex items-center justify-center p-4">
-          {!showDiff ? (
+          {!showDiff && !showAnalyze ? (
             <Card className="w-full max-w-sm">
               <CardHeader>
                 <CardTitle>Welcome</CardTitle>
-                <CardDescription>Enter JSON in the left editor or switch to Difference mode.</CardDescription>
+                <CardDescription>Enter JSON in the left editor or choose a mode.</CardDescription>
               </CardHeader>
               <CardContent className="text-sm opacity-70">
-                Use the “Difference” button to compare two JSON documents.
+                Use “Difference” to compare two JSONs, or “Analyze” to browse structure.
               </CardContent>
             </Card>
-          ) : (
+          ) : null}
+
+          {showDiff ? (
             <Card className="w-full max-w-2xl">
               <CardHeader>
                 <CardTitle>JSON Difference</CardTitle>
@@ -602,7 +884,38 @@ export default function App() {
                 Green = values are the same, Red = different. “Missing key” means the key exists in only one JSON. Click a row to view details.
               </CardFooter>
             </Card>
-          )}
+          ) : null}
+
+          {showAnalyze ? (
+            <Card className="w-full max-w-2xl">
+              <CardHeader>
+                <CardTitle>Analyze JSON</CardTitle>
+                <CardDescription>Explore keys, types, values, and nested relationships.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex gap-2 items-center">
+                  <Button onClick={handleAnalyze} className="shrink-0">Analyze</Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => { setAnalyzeRoot(null); setAnalyzeError(""); setAnalyzeExpanded({}) }}
+                  >
+                    Clear Result
+                  </Button>
+                </div>
+
+                {analyzeError && (<div className="text-sm text-destructive break-words">{analyzeError}</div>)}
+
+                {analyzeRoot ? (
+                  <InspectTree root={analyzeRoot} expanded={analyzeExpanded} setExpanded={setAnalyzeExpanded} />
+                ) : (
+                  !analyzeError && <div className="text-sm opacity-70">Click “Analyze” to inspect the left JSON.</div>
+                )}
+              </CardContent>
+              <CardFooter className="text-xs opacity-60">
+                Click a row to expand/collapse. Objects show key counts; arrays show item counts. Primitives show previews.
+              </CardFooter>
+            </Card>
+          ) : null}
         </div>
       </div>
     </div>
