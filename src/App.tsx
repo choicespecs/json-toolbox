@@ -6,10 +6,10 @@
   import { Card, CardContent, CardDescription, CardFooter,CardHeader,CardTitle } from "@/components/ui/card"
   import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
   import { Plus, X, ChevronLeft, ChevronRight, SplitSquareHorizontal } from "lucide-react"
-  import type { Doc, JSONValue, JSONObject, JSONArray } from "@/types";
-  import type { FlatDiff, DiffNode, DiffNodeType } from "@/features/diff";
-  import type { InspectKind, InspectNode } from "@/features/analyze";
-  import { parseJsonSafe, formatJsonText, isPlainObj,renderVal, kindOf,previewValue } from "@/lib/json";
+  import type { Doc } from "@/types";
+  import type { FlatDiff, DiffNode } from "@/features/diff";
+  import type { InspectNode } from "@/features/analyze";
+  import { parseJsonSafe, formatJsonText,renderVal } from "@/lib/json";
   import { buildInspectTree } from "@/features/analyze/inspect";
   import { computeDifferences, computeDiffTree } from "@/features/diff/compute";
   import { InspectTree } from "@/components/analyze/InspectTree";
