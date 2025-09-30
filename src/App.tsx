@@ -3,27 +3,15 @@
 
   import { Textarea } from "@/components/ui/textarea"
   import { Button } from "@/components/ui/button"
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-  } from "@/components/ui/card"
+  import { Card, CardContent, CardDescription, CardFooter,CardHeader,CardTitle } from "@/components/ui/card"
   import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
   import { Plus, X, ChevronLeft, ChevronRight, SplitSquareHorizontal } from "lucide-react"
   import type { Doc, JSONValue, JSONObject, JSONArray } from "@/types";
   import type { FlatDiff, DiffNode, DiffNodeType } from "@/features/diff";
   import type { InspectKind, InspectNode } from "@/features/analyze";
-  import {
-  parseJsonSafe,
-  formatJsonText,
-  isPlainObj,     // used in computeDifferences/computeDiffTree
-  renderVal,      // used in Diff list/details UI
-  kindOf,         // used in buildInspectTree
-  previewValue,   // used in buildInspectTree
-} from "@/lib/json";
+  import { parseJsonSafe, formatJsonText, isPlainObj,renderVal, kindOf,previewValue } from "@/lib/json";
+  import { buildInspectTree } from "@/features/analyze/inspect";
+  import { computeDifferences, computeDiffTree } from "@/features/diff/compute";
 
   const makeDoc = (n: number): Doc => ({
     id: crypto.randomUUID?.() ?? String(Date.now() + n),
@@ -31,89 +19,7 @@
     text: "",
     diffText: "",
   })
-
-
-  function computeDifferences(a: JSONValue, b: JSONValue) {
-    const diffs: FlatDiff[] = []
-
-    const flatten = (prefix: string, node: JSONValue, out: Record<string, JSONValue>) => {
-      if (isPlainObj(node)) {
-        for (const [k, v] of Object.entries(node)) {
-          flatten(prefix ? `${prefix}.${k}` : k, v, out)
-        }
-      } else if (Array.isArray(node)) {
-        out[prefix] = node
-      } else {
-        out[prefix] = node
-      }
-    }
-
-    const A: Record<string, JSONValue> = {}
-    const B: Record<string, JSONValue> = {}
-    flatten("", a, A)
-    flatten("", b, B)
-
-    const keys = new Set([...Object.keys(A), ...Object.keys(B)])
-    for (const k of keys) {
-      const leftPresent = k in A
-      const rightPresent = k in B
-      const va = leftPresent ? A[k] : undefined
-      const vb = rightPresent ? B[k] : undefined
-      const same = leftPresent && rightPresent && JSON.stringify(va) === JSON.stringify(vb)
-      diffs.push({ key: k, same, left: va, right: vb, leftPresent, rightPresent })
-    }
-
-    diffs.sort((x, y) => (Number(x.same) - Number(y.same)) || x.key.localeCompare(y.key))
-    return diffs
-  }
-
-  function computeDiffTree(a: JSONValue, b: JSONValue, path = ""): DiffNode {
-    const leftPresent = typeof a !== "undefined"
-    const rightPresent = typeof b !== "undefined"
-
-    const nodeType: DiffNodeType =
-      Array.isArray(a) || Array.isArray(b)
-        ? "array"
-        : (isPlainObj(a) || isPlainObj(b))
-          ? "object"
-          : "value"
-
-    if (nodeType === "object") {
-      const aObj = isPlainObj(a) ? a : {}
-      const bObj = isPlainObj(b) ? b : {}
-      const keys = Array.from(new Set([...Object.keys(aObj), ...Object.keys(bObj)])).sort()
-      const children = keys.map((k) => computeDiffTree(aObj[k], bObj[k], path ? `${path}.${k}` : k))
-
-      const same = leftPresent && rightPresent && children.every((c) => c.same)
-      const diffCount = children.reduce((acc, c) => acc + c.diffCount, 0)
-
-      return {
-        key: path.split(".").pop() ?? "",
-        path,
-        type: "object",
-        same,
-        leftPresent,
-        rightPresent,
-        children,
-        diffCount,
-      }
-    }
-
-    const same = leftPresent && rightPresent && JSON.stringify(a) === JSON.stringify(b)
-
-    return {
-      key: path.split(".").pop() ?? "",
-      path,
-      type: nodeType,
-      same,
-      leftPresent,
-      rightPresent,
-      left: a,
-      right: b,
-      diffCount: same ? 0 : 1,
-    }
-  }
-
+  
   function Badge({ children }: { children: React.ReactNode }) {
     return (
       <span className="text-[10px] rounded px-1 py-0.5 bg-amber-100 text-amber-900 border border-amber-300">
@@ -217,44 +123,6 @@
         </ul>
       </div>
     )
-  }
-
-  function buildInspectTree(v: JSONValue, path = ""): InspectNode {
-    const k = kindOf(v)
-
-    if (k === "object") {
-      const obj = (v ?? {}) as JSONObject
-      const keys = Object.keys(obj).sort()
-      const children = keys.map(key => buildInspectTree(obj[key], path ? `${path}.${key}` : key))
-      return {
-        key: path.split(".").pop() ?? "",
-        path,
-        kind: "object",
-        count: keys.length,
-        preview: previewValue(v),
-        children,
-      }
-    }
-
-    if (k === "array") {
-      const arr = (v ?? []) as JSONArray
-      const children = arr.map((item, idx) => buildInspectTree(item, path ? `${path}[${idx}]` : `[${idx}]`))
-      return {
-        key: path.split(".").pop() ?? "",
-        path,
-        kind: "array",
-        count: arr.length,
-        preview: previewValue(v),
-        children,
-      }
-    }
-
-    return {
-      key: path.split(".").pop() ?? "",
-      path,
-      kind: k,
-      preview: previewValue(v),
-    }
   }
 
   function KindBadge({ kind }: { kind: InspectKind }) {
