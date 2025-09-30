@@ -1,6 +1,6 @@
 import type { JSONValue, JSONObject, JSONArray } from "@/types";
 import type { InspectNode } from "@/features/analyze";
-import { kindOf, previewValue, isPlainObj } from "@/lib/json";
+import { kindOf, previewValue } from "@/lib/json";
 
 export function buildInspectTree(v: JSONValue, path = ""): InspectNode {
   const k = kindOf(v);
