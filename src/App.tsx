@@ -7,6 +7,7 @@ import { parseJsonSafe, formatJsonText } from "@/lib/json"
 import { buildInspectTree } from "@/features/analyze/inspect"
 import { computeDifferences, computeDiffTree } from "@/features/diff/compute"
 
+import VisualizerPanel from "@/components/visualize/VisualizerPanel"
 import { TopBar } from "@/components/app/TopBar"
 import { LeftEditors } from "@/components/app/LeftEditors"
 import { DiffPanel } from "@/components/diff/DiffPanel"
@@ -20,6 +21,8 @@ const makeDoc = (n: number): Doc => ({
 })
 
 export default function App() {
+  const [showVisualize, setShowVisualize] = useState(false)
+
   // state
   const [docs, setDocs] = useState<Doc[]>(() => [makeDoc(1)])
   const [active, setActive] = useState<string>("")
@@ -42,9 +45,17 @@ export default function App() {
   const [analyzeExpanded, setAnalyzeExpanded] = useState<Record<string, boolean>>({})
 
   // ensure initial tab
-  useEffect(() => { if (!active && docs.length) setActive(docs[0].id) }, [docs, active])
-  useEffect(() => { if (active && !docs.find(d => d.id === active) && docs.length) setActive(docs[docs.length - 1].id) }, [docs, active])
+  useEffect(() => {
+    if (!active && docs.length) setActive(docs[0].id)
+  }, [docs, active])
 
+  useEffect(() => {
+    if (active && !docs.find(d => d.id === active) && docs.length) {
+      setActive(docs[docs.length - 1].id)
+    }
+  }, [docs, active])
+
+  // reset panels when switching
   useEffect(() => { setHasCompared(false); setDiffs([]); setTreeNode(null); setDiffError(""); setExpanded({}) }, [showDiff, active])
   useEffect(() => { setAnalyzeRoot(null); setAnalyzeError(""); setAnalyzeExpanded({}) }, [showAnalyze, active])
 
@@ -54,7 +65,12 @@ export default function App() {
   const setText = (id: string, text: string) => setDocs(p => p.map(d => d.id === id ? { ...d, text } : d))
   const setDiffText = (id: string, text: string) => setDocs(p => p.map(d => d.id === id ? { ...d, diffText: text } : d))
 
-  useEffect(() => { if (showDiff && activeDoc && typeof activeDoc.diffText === "undefined") setDiffText(activeDoc.id, "") }, [showDiff, activeDoc?.id])
+  // ensure diffText exists when enabling diff on a doc that somehow lacks it
+  useEffect(() => {
+    if (showDiff && activeDoc && typeof activeDoc.diffText === "undefined") {
+      setDiffText(activeDoc.id, "")
+    }
+  }, [showDiff, activeDoc?.id])
 
   // actions
   const handleCompare = () => {
@@ -93,10 +109,12 @@ export default function App() {
       <TopBar
         showDiff={showDiff} setShowDiff={setShowDiff}
         showAnalyze={showAnalyze} setShowAnalyze={setShowAnalyze}
+        showVisualize={showVisualize} setShowVisualize={setShowVisualize}
         indent={indent} setIndent={setIndent}
         sortKeys={sortKeys} setSortKeys={setSortKeys}
         prettify={prettify}
       />
+
       <div className="flex flex-1 min-h-0">
         <div className="w-1/2 flex flex-col border-r min-h-0">
           <LeftEditors
@@ -106,13 +124,20 @@ export default function App() {
             showDiff={showDiff}
           />
         </div>
+
         <div className="w-1/2 flex items-center justify-center p-4">
-          {!showDiff && !showAnalyze && (
+          {!showDiff && !showAnalyze && !showVisualize && (
             <Card className="w-full max-w-sm">
-              <CardHeader><CardTitle>Welcome</CardTitle><CardDescription>Enter JSON in the left editor or choose a mode.</CardDescription></CardHeader>
-              <CardContent className="text-sm opacity-70">Use “Difference” to compare two JSONs, or “Analyze” to browse structure.</CardContent>
+              <CardHeader>
+                <CardTitle>Welcome</CardTitle>
+                <CardDescription>Enter JSON in the left editor or choose a mode.</CardDescription>
+              </CardHeader>
+              <CardContent className="text-sm opacity-70">
+                Use “Difference” to compare two JSONs, “Analyze” to browse structure, or “Visualize” for a graph view.
+              </CardContent>
             </Card>
           )}
+
           {showDiff && (
             <DiffPanel
               diffs={diffs} treeNode={treeNode} viewMode={viewMode} setViewMode={setViewMode}
@@ -122,6 +147,7 @@ export default function App() {
               onClear={() => { setHasCompared(false); setDiffs([]); setTreeNode(null); setDiffError(""); setExpanded({}) }}
             />
           )}
+
           {showAnalyze && (
             <AnalyzePanel
               root={analyzeRoot} error={analyzeError}
@@ -129,6 +155,10 @@ export default function App() {
               onAnalyze={handleAnalyze}
               onClear={() => { setAnalyzeRoot(null); setAnalyzeError(""); setAnalyzeExpanded({}) }}
             />
+          )}
+
+          {showVisualize && (
+            <VisualizerPanel jsonText={activeDoc?.text ?? ""} />
           )}
         </div>
       </div>
