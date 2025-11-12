@@ -14,26 +14,36 @@ type TopBarProps = {
   sortKeys: boolean
   setSortKeys: Dispatch<SetStateAction<boolean>>
   prettify: (minify?: boolean) => void
+  onJsonToString: () => void
 }
 
 export function TopBar({
-  showDiff, setShowDiff,
-  showAnalyze, setShowAnalyze,
-  showVisualize, setShowVisualize,
-  indent, setIndent,
-  sortKeys, setSortKeys,
-  prettify
+  showDiff,
+  setShowDiff,
+  showAnalyze,
+  setShowAnalyze,
+  showVisualize,
+  setShowVisualize,
+  indent,
+  setIndent,
+  sortKeys,
+  setSortKeys,
+  prettify,
+  onJsonToString,
 }: TopBarProps) {
   return (
     <div className="flex items-center justify-between border-b bg-background/60 px-4 py-2">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Button
           size="sm"
           variant={showDiff ? "default" : "outline"}
           onClick={() => {
-            setShowDiff(prev => {
+            setShowDiff((prev) => {
               const next = !prev
-              if (next) { setShowAnalyze(false); setShowVisualize(false) }
+              if (next) {
+                setShowAnalyze(false)
+                setShowVisualize(false)
+              }
               return next
             })
           }}
@@ -45,9 +55,12 @@ export function TopBar({
           size="sm"
           variant={showAnalyze ? "default" : "outline"}
           onClick={() => {
-            setShowAnalyze(prev => {
+            setShowAnalyze((prev) => {
               const next = !prev
-              if (next) { setShowDiff(false); setShowVisualize(false) }
+              if (next) {
+                setShowDiff(false)
+                setShowVisualize(false)
+              }
               return next
             })
           }}
@@ -59,19 +72,32 @@ export function TopBar({
           size="sm"
           variant={showVisualize ? "default" : "outline"}
           onClick={() => {
-            setShowVisualize(prev => {
+            setShowVisualize((prev) => {
               const next = !prev
-              if (next) { setShowDiff(false); setShowAnalyze(false) }
+              if (next) {
+                setShowDiff(false)
+                setShowAnalyze(false)
+              }
               return next
             })
           }}
         >
           Visualize
         </Button>
-                <Button size="sm" variant="outline" onClick={() => prettify(false)}>Prettify{showDiff ? " Both" : ""}</Button>
-        <Button size="sm" variant="outline" onClick={() => prettify(true)}>Minify{showDiff ? " Both" : ""}</Button>
+
+        <Button size="sm" variant="outline" onClick={() => prettify(false)}>
+          Prettify
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => prettify(true)}>
+          Minify
+        </Button>
+
+        {/* ✅ new button */}
+        <Button size="sm" variant="outline" onClick={onJsonToString}>
+          JSON → String
+        </Button>
       </div>
-      
+
       <div className="text-xs opacity-70">
         {!showDiff && !showAnalyze && !showVisualize
           ? "Single editor"
