@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { SplitSquareHorizontal } from "lucide-react"
-import { Dispatch, SetStateAction } from "react"
+import type { Dispatch, SetStateAction } from "react"
 
 type TopBarProps = {
   showDiff: boolean
@@ -31,6 +31,12 @@ export function TopBar({
   prettify,
   onJsonToString,
 }: TopBarProps) {
+  // mark currently-unused props as intentionally used
+  void indent
+  void setIndent
+  void sortKeys
+  void setSortKeys
+
   return (
     <div className="flex items-center justify-between border-b bg-background/60 px-4 py-2">
       <div className="flex items-center gap-2 flex-wrap">
@@ -92,7 +98,6 @@ export function TopBar({
           Minify
         </Button>
 
-        {/* ✅ new button */}
         <Button size="sm" variant="outline" onClick={onJsonToString}>
           JSON → String
         </Button>

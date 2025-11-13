@@ -192,12 +192,12 @@ export default function App() {
                     Click the “JSON → String” button above to convert your JSON.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="h-80">
                   <Textarea
                     value={jsonStringOutput}
                     readOnly
                     placeholder="Your escaped string will appear here"
-                    className="w-full h-80 resize-none font-mono text-sm"
+                    className="w-full h-full resize-none font-mono text-sm"
                   />
                 </CardContent>
               </Card>
