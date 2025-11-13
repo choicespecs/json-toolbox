@@ -49,7 +49,6 @@ type BuildOpts = {
 
 export function buildContainerGraph(
   value: AnyJSON,
-  rootPath = ROOT_ID,
   { pageSize = 100 }: BuildOpts = {}
 ): { nodes: ContainerNode[]; edges: ContainerEdge[] } {
   const nodes: ContainerNode[] = []

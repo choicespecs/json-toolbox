@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import type { FlatDiff, DiffNode } from "@/features/diff"
 import { DiffTreeView } from "@/components/diff/DiffTree"
 import { renderVal } from "@/lib/json"
+import type { Dispatch, SetStateAction } from "react"   // 👈 add this
 
 type DiffPanelProps = {
   diffs: FlatDiff[]
@@ -12,7 +13,7 @@ type DiffPanelProps = {
   diffError: string
   hasCompared: boolean
   expanded: Record<string, boolean>
-  setExpanded: (fn: (prev: Record<string, boolean>) => Record<string, boolean>) => void
+  setExpanded: Dispatch<SetStateAction<Record<string, boolean>>>  // 👈 fix type
   onCompare: () => void
   onClear: () => void
 }
