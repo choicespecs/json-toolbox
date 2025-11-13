@@ -6,6 +6,7 @@ import ReactFlow, {
   MarkerType,
   type Node,
   type Edge,
+  Position,               // 👈 add this
 } from "reactflow"
 import "reactflow/dist/style.css"
 import ELK from "elkjs"
@@ -42,7 +43,11 @@ export default function VisualizerPanel({ jsonText }: VisualizerPanelProps) {
       return { gnodes: [] as GNode[], gedges: [] as GEdge[] }
     }
     setErrorMessage("")
-    const g = buildContainerGraph(parsed.value, "(root)")
+
+    // ❌ was: buildContainerGraph(parsed.value, "(root)")
+    // second arg must be BuildOpts, not a string
+    const g = buildContainerGraph(parsed.value)   // 👈 just call with the value
+
     return { gnodes: g.nodes, gedges: g.edges }
   }, [jsonText])
 
@@ -99,8 +104,11 @@ export default function VisualizerPanel({ jsonText }: VisualizerPanelProps) {
             rows: n.rows,
           },
           style: { width: s.w, height: s.h },
-          sourcePosition: "right",
-          targetPosition: "left",
+
+          // ❌ was: "right" / "left" (plain strings)
+          // ✅ use Position enum so it matches Node type
+          sourcePosition: Position.Right,
+          targetPosition: Position.Left,
         }
       })
 

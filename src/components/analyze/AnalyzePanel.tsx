@@ -2,12 +2,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import type { InspectNode } from "@/features/analyze"
 import { InspectTree } from "@/components/analyze/InspectTree"
+import type { Dispatch, SetStateAction } from "react"   // 👈 add this
 
 type AnalyzePanelProps = {
   root: InspectNode | null
   error: string
   expanded: Record<string, boolean>
-  setExpanded: (fn: (prev: Record<string, boolean>) => Record<string, boolean>) => void
+  setExpanded: Dispatch<SetStateAction<Record<string, boolean>>>  // 👈 fix type
   onAnalyze: () => void
   onClear: () => void
 }
