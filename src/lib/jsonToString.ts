@@ -5,7 +5,6 @@ export function jsonToStringLiteral(jsonText: string): string | null {
     const escaped = compact.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
     return `"${escaped}"`; // usable in JS/Java source
   } catch (e) {
-    console.error("Invalid JSON", e);
     return null;
   }
 }
