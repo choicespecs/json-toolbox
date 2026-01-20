@@ -90,17 +90,6 @@ export function TopBar({
         >
           Visualize
         </Button>
-
-        <Button size="sm" variant="outline" onClick={() => prettify(false)}>
-          Prettify
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => prettify(true)}>
-          Minify
-        </Button>
-
-        <Button size="sm" variant="outline" onClick={onJsonToString}>
-          JSON → String
-        </Button>
       </div>
 
       <div className="text-xs opacity-70">
@@ -111,6 +100,18 @@ export function TopBar({
           : showAnalyze
           ? "Analyze JSON structure"
           : "Graph view"}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={onJsonToString}>
+          JSON → String
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => prettify(false)}>
+          Prettify
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => prettify(true)}>
+          Minify
+        </Button>
       </div>
     </div>
   )
