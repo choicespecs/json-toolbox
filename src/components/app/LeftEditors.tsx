@@ -75,15 +75,15 @@ export function LeftEditors({
               <div key={d.id} className="inline-flex">
                 <TabsTrigger value={d.id} className="group relative rounded-t px-3 py-2 data-[state=active]:bg-muted">
                   <span className="max-w-[8rem] truncate">{d.title}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="ml-2 h-5 w-5 opacity-60 hover:opacity-100"
+                  <span
+                    className="ml-2 h-5 w-5 opacity-60 hover:opacity-100 cursor-pointer inline-flex items-center justify-center"
                     onClick={(e) => { e.stopPropagation(); onCloseTab(d.id) }}
+                    role="button"
+                    tabIndex={0}
                     aria-label={`Close ${d.title}`}
                   >
                     <X className="h-3.5 w-3.5" />
-                  </Button>
+                  </span>
                 </TabsTrigger>
               </div>
             ))}
