@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import type { Doc } from "@/types"
 import type { FlatDiff, DiffNode } from "@/features/diff"
 import type { InspectNode } from "@/features/analyze"
@@ -31,7 +30,6 @@ export default function App() {
 
   const [showDiff, setShowDiff] = useState(false)
   const [showAnalyze, setShowAnalyze] = useState(false)
-  const [showJsonToString, setShowJsonToString] = useState(false)
   const [indent, setIndent] = useState<2 | 4>(2)
   const [sortKeys, setSortKeys] = useState(true)
 
@@ -149,7 +147,6 @@ export default function App() {
       return
     }
     setJsonStringOutput(converted)
-    setShowJsonToString(true)
     setShowDiff(false)
     setShowAnalyze(false)
     setShowVisualize(false)
