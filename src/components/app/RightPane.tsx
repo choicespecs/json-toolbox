@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from "react"
 import type { FlatDiff, DiffNode } from "@/features/diff"
 import type { InspectNode } from "@/features/analyze"
 import { DiffPanel } from "@/components/diff/DiffPanel"
@@ -9,9 +10,11 @@ type Props = {
   showDiff: boolean
   showAnalyze: boolean
   showVisualize: boolean
+  showJsonToString: boolean
 
-  // output mode
+  // json → string
   jsonStringOutput: string
+  jsonStringError: string
 
   // visualize
   jsonText: string
@@ -24,7 +27,7 @@ type Props = {
   diffError: string
   hasCompared: boolean
   expanded: Record<string, boolean>
-  setExpanded: (v: Record<string, boolean>) => void
+  setExpanded: Dispatch<SetStateAction<Record<string, boolean>>>
   onCompare: () => void
   onClearDiff: () => void
 
@@ -32,7 +35,7 @@ type Props = {
   analyzeRoot: InspectNode | null
   analyzeError: string
   analyzeExpanded: Record<string, boolean>
-  setAnalyzeExpanded: (v: Record<string, boolean>) => void
+  setAnalyzeExpanded: Dispatch<SetStateAction<Record<string, boolean>>>
   onAnalyze: () => void
   onClearAnalyze: () => void
 }
@@ -42,8 +45,10 @@ export function RightPane(props: Props) {
     showDiff,
     showAnalyze,
     showVisualize,
+    showJsonToString,
 
     jsonStringOutput,
+    jsonStringError,
     jsonText,
 
     diffs,
@@ -67,8 +72,8 @@ export function RightPane(props: Props) {
 
   return (
     <div className="w-1/2 flex flex-col p-4 overflow-y-auto">
-      {!showDiff && !showAnalyze && !showVisualize && (
-        <JsonStringOutputCard value={jsonStringOutput} />
+      {showJsonToString && (
+        <JsonStringOutputCard value={jsonStringOutput} error={jsonStringError} />
       )}
 
       {showDiff && (

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react"
 import type { Doc } from "@/types"
+import { JsonEditor } from "@/components/app/JsonEditor"
 
 type LeftEditorsProps = {
   docs: Doc[]
@@ -109,30 +109,33 @@ export function LeftEditors({
         </div>
       </div>
 
-      <div className="flex-1 p-4 overflow-hidden min-h-0">
+      <div className="flex-1 overflow-hidden min-h-0 p-4">
         {docs.map((d) => (
           <TabsContent key={d.id} value={d.id} className="h-full m-0">
             {!showDiff ? (
-              <Textarea
-                value={d.text}
-                onChange={(e) => onSetText(d.id, e.target.value)}
-                className="w-full h-full resize-none font-mono text-sm"
-                placeholder='{"key":"value"}'
-              />
+              <div className="h-full border rounded-md overflow-hidden">
+                <JsonEditor
+                  value={d.text}
+                  onChange={(v) => onSetText(d.id, v)}
+                  placeholder='{"key":"value"}'
+                />
+              </div>
             ) : (
               <div className="grid grid-rows-2 gap-3 h-full min-h-0">
-                <Textarea
-                  value={d.text}
-                  onChange={(e) => onSetText(d.id, e.target.value)}
-                  className="w-full h-full resize-none font-mono text-sm"
-                  placeholder='{"source":"baseline JSON"}'
-                />
-                <Textarea
-                  value={d.diffText ?? ""}
-                  onChange={(e) => onSetDiffText(d.id, e.target.value)}
-                  className="w-full h-full resize-none font-mono text-sm"
-                  placeholder='{"target":"JSON to compare"}'
-                />
+                <div className="border rounded-md overflow-hidden min-h-0">
+                  <JsonEditor
+                    value={d.text}
+                    onChange={(v) => onSetText(d.id, v)}
+                    placeholder='{"source":"baseline JSON"}'
+                  />
+                </div>
+                <div className="border rounded-md overflow-hidden min-h-0">
+                  <JsonEditor
+                    value={d.diffText ?? ""}
+                    onChange={(v) => onSetDiffText(d.id, v)}
+                    placeholder='{"target":"JSON to compare"}'
+                  />
+                </div>
               </div>
             )}
           </TabsContent>

@@ -9,12 +9,14 @@ type TopBarProps = {
   setShowAnalyze: Dispatch<SetStateAction<boolean>>
   showVisualize: boolean
   setShowVisualize: Dispatch<SetStateAction<boolean>>
+  showJsonToString: boolean
+  toggleJsonToString: () => void
+  setShowJsonToString: Dispatch<SetStateAction<boolean>>
   indent: 2 | 4
   setIndent: Dispatch<SetStateAction<2 | 4>>
   sortKeys: boolean
   setSortKeys: Dispatch<SetStateAction<boolean>>
   prettify: (minify?: boolean) => void
-  onJsonToString: () => void
 }
 
 export function TopBar({
@@ -24,12 +26,14 @@ export function TopBar({
   setShowAnalyze,
   showVisualize,
   setShowVisualize,
+  showJsonToString,
+  toggleJsonToString,
+  setShowJsonToString,
   indent,
   setIndent,
   sortKeys,
   setSortKeys,
   prettify,
-  onJsonToString,
 }: TopBarProps) {
   // mark currently-unused props as intentionally used
   void indent
@@ -49,6 +53,7 @@ export function TopBar({
               if (next) {
                 setShowAnalyze(false)
                 setShowVisualize(false)
+                setShowJsonToString(false)
               }
               return next
             })
@@ -66,6 +71,7 @@ export function TopBar({
               if (next) {
                 setShowDiff(false)
                 setShowVisualize(false)
+                setShowJsonToString(false)
               }
               return next
             })
@@ -83,6 +89,7 @@ export function TopBar({
               if (next) {
                 setShowDiff(false)
                 setShowAnalyze(false)
+                setShowJsonToString(false)
               }
               return next
             })
@@ -90,22 +97,29 @@ export function TopBar({
         >
           Visualize
         </Button>
+
+        <Button
+          size="sm"
+          variant={showJsonToString ? "default" : "outline"}
+          onClick={toggleJsonToString}
+        >
+          JSON → String
+        </Button>
       </div>
 
       <div className="text-xs opacity-70">
-        {!showDiff && !showAnalyze && !showVisualize
+        {!showDiff && !showAnalyze && !showVisualize && !showJsonToString
           ? "Single editor"
           : showDiff
           ? "Split view enabled"
           : showAnalyze
           ? "Analyze JSON structure"
-          : "Graph view"}
+          : showVisualize
+          ? "Graph view"
+          : "JSON → String"}
       </div>
 
       <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" onClick={onJsonToString}>
-          JSON → String
-        </Button>
         <Button size="sm" variant="outline" onClick={() => prettify(false)}>
           Prettify
         </Button>

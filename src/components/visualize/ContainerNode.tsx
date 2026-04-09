@@ -1,7 +1,7 @@
 import { memo } from "react"
 import { Handle, Position, type NodeProps } from "reactflow"
 
-type Row = { key: string; type: string }
+type Row = { key: string; type: string; value?: string }
 type Data = {
   title: string
   kind: "object" | "array"
@@ -44,10 +44,11 @@ export default memo(function ContainerNode({ data }: NodeProps<Data>) {
       {/* rows */}
       {rows.length ? (
         <div className="text-xs">
-          <div className="grid grid-cols-[1fr_auto] gap-x-3 px-3 py-2">
+          <div className="grid grid-cols-[auto_1fr_auto] gap-x-3 px-3 py-2">
             {rows.map((r) => (
               <div key={r.key} className="contents">
-                <div className="font-mono truncate" title={r.key}>{r.key}</div>
+                <div className="font-mono truncate text-muted-foreground" title={r.key}>{r.key}</div>
+                <div className="font-mono truncate" title={r.value ?? ""}>{r.value ?? ""}</div>
                 <div className="justify-self-end">
                   <Pill>{r.type.toUpperCase()}</Pill>
                 </div>

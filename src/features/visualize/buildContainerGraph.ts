@@ -1,6 +1,7 @@
 export type KeyRow = {
   key: string
   type: "string" | "number" | "boolean" | "null" | "unknown"
+  value?: string   // display value for primitive cells
 }
 export type ContainerKind = "object" | "array"
 
@@ -95,10 +96,17 @@ export function buildContainerGraph(
     const sample = arr.slice(0, pageSize)
     const firstNonNull = sample.find(v => v !== null)
 
-    // Array of primitives → summarize on the array node
+    // Array of primitives → one row per element
     if (firstNonNull === undefined || isPrimitive(firstNonNull)) {
-      node.meta!.note = firstNonNull === undefined ? "empty array" : `array of ${typeOfPrimitive(firstNonNull)}`
-      node.rows.push({ key: "item", type: firstNonNull === undefined ? "unknown" : typeOfPrimitive(firstNonNull) })
+      if (firstNonNull === undefined) {
+        node.meta!.note = "empty array"
+      }
+      for (let i = 0; i < sample.length; i++) {
+        const v = sample[i]
+        const t = typeOfPrimitive(v)
+        const display = v === null ? "null" : String(v)
+        node.rows.push({ key: `[${i}]`, type: t, value: display })
+      }
       nodes.push(node)
       return
     }

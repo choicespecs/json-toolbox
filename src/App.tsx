@@ -1,13 +1,13 @@
 import { LeftEditors } from "@/components/app/LeftEditors"
 import { TopBar } from "@/components/app/TopBar"
 import { RightPane } from "@/components/app/RightPane"
-import { useJsonToolboxApp } from "@/features/app/useJsonToolBoxApp"
+import { useJsonToolboxApp } from "@/features/app/useJsonToolboxApp"
 
 export default function App() {
   const app = useJsonToolboxApp()
 
   return (
-    <div className="min-h-screen w-full flex flex-col">
+    <div className="h-screen w-full flex flex-col overflow-hidden">
       <TopBar
         showDiff={app.showDiff}
         setShowDiff={app.setShowDiff}
@@ -15,12 +15,14 @@ export default function App() {
         setShowAnalyze={app.setShowAnalyze}
         showVisualize={app.showVisualize}
         setShowVisualize={app.setShowVisualize}
+        showJsonToString={app.showJsonToString}
+        toggleJsonToString={app.toggleJsonToString}
+        setShowJsonToString={app.setShowJsonToString}
         indent={app.indent}
         setIndent={app.setIndent}
         sortKeys={app.sortKeys}
         setSortKeys={app.setSortKeys}
         prettify={app.prettify}
-        onJsonToString={app.handleJsonToString}
       />
 
       <div className="flex flex-1 min-h-0">
@@ -43,7 +45,9 @@ export default function App() {
           showDiff={app.showDiff}
           showAnalyze={app.showAnalyze}
           showVisualize={app.showVisualize}
+          showJsonToString={app.showJsonToString}
           jsonStringOutput={app.jsonStringOutput}
+          jsonStringError={app.jsonStringError}
           jsonText={app.activeDoc?.text ?? ""}
           diffs={app.diffs}
           treeNode={app.treeNode}

@@ -7,6 +7,13 @@ import { buildInspectTree } from "@/features/analyze/inspect"
 import { computeDifferences, computeDiffTree } from "@/features/diff/compute"
 import { jsonToStringLiteral } from "@/lib/jsonToString"
 
+function computeJsonString(text: string): { output: string; error: string } {
+  if (!text.trim()) return { output: "", error: "" }
+  const result = jsonToStringLiteral(text)
+  if (result === null) return { output: "", error: "Invalid JSON — fix syntax errors to see the output." }
+  return { output: result, error: "" }
+}
+
 const makeDoc = (n: number): Doc => ({
   id: crypto.randomUUID?.() ?? String(Date.now() + n),
   title: `JSON ${n}`,
@@ -19,6 +26,7 @@ export function useJsonToolboxApp() {
   const [showVisualize, setShowVisualize] = useState(false)
   const [showDiff, setShowDiff] = useState(false)
   const [showAnalyze, setShowAnalyze] = useState(false)
+  const [showJsonToString, setShowJsonToString] = useState(false)
 
   // docs/tabs
   const [docs, setDocs] = useState<Doc[]>(() => [makeDoc(1)])
@@ -42,8 +50,11 @@ export function useJsonToolboxApp() {
   const [analyzeError, setAnalyzeError] = useState("")
   const [analyzeExpanded, setAnalyzeExpanded] = useState<Record<string, boolean>>({})
 
-  // JSON -> string output
-  const [jsonStringOutput, setJsonStringOutput] = useState("")
+  // JSON -> string: derived reactively from active doc text
+  const { output: jsonStringOutput, error: jsonStringError } = useMemo(
+    () => (showJsonToString ? computeJsonString(activeDoc?.text ?? "") : { output: "", error: "" }),
+    [showJsonToString, activeDoc?.text]
+  )
 
   // ----- helpers -----
   const resetDiff = () => {
@@ -163,30 +174,16 @@ export function useJsonToolboxApp() {
     }
   }
 
-  const handleJsonToString = () => {
-    if (!activeDoc) return
-
-    const converted = jsonToStringLiteral(activeDoc.text)
-    if (!converted) {
-      alert("Invalid JSON. Please fix syntax first.")
-      setJsonStringOutput("")
-      return
-    }
-
-    setJsonStringOutput(converted)
-
-    // same as your current logic: switch to "output" mode
-    setShowDiff(false)
-    setShowAnalyze(false)
-    setShowVisualize(false)
-  }
-
-  // Optional: single mode setter to avoid weird combinations.
-  // (Not required; your current code allows multiple true.)
-  const setMode = (mode: "output" | "diff" | "analyze" | "visualize") => {
-    setShowDiff(mode === "diff")
-    setShowAnalyze(mode === "analyze")
-    setShowVisualize(mode === "visualize")
+  const toggleJsonToString = () => {
+    setShowJsonToString((prev) => {
+      const next = !prev
+      if (next) {
+        setShowDiff(false)
+        setShowAnalyze(false)
+        setShowVisualize(false)
+      }
+      return next
+    })
   }
 
   return {
@@ -197,7 +194,9 @@ export function useJsonToolboxApp() {
     setShowDiff,
     showAnalyze,
     setShowAnalyze,
-    setMode,
+    showJsonToString,
+    setShowJsonToString,
+    toggleJsonToString,
 
     // docs
     docs,
@@ -236,8 +235,8 @@ export function useJsonToolboxApp() {
     handleAnalyze,
     clearAnalyze: resetAnalyze,
 
-    // output
+    // json → string
     jsonStringOutput,
-    handleJsonToString,
+    jsonStringError,
   }
 }
